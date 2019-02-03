@@ -1,0 +1,98 @@
+/**
+@brief Documentation file for TFT_eTouch
+@author Achill Hasler
+@file mainpage.dox
+*/
+
+// we have to list all sample programs to schow these in doxygen
+/**
+@example TFT_eSPIcalibrate.ino Calibration example for TFT_eSPI driver
+@example raw.ino Touch raw data example
+*/
+
+/**
+@mainpage TFT_eTouch
+@section intro Intro
+Touchscreen
+- interface: spi & i2c
+- type: resistive & capacitive
+
+This library supports resistive touchscreen chips with spi interface.
+
+@section config Config
+@subsection display Supported display
+The template parameter must be a Adafuit compatible display driver with followed interface
+@code
+class T {
+public:
+  int16_t height(void);
+  int16_t width(void);
+  uint8_t getRotation(void);
+  
+  void    fillScreen(uint32_t color);
+  void    drawPixel(uint32_t x, uint32_t y, uint32_t color);
+  void    drawCircle(int32_t x0, int32_t y0, int32_t r, uint32_t color);
+  void    fillCircle(int32_t x0, int32_t y0, int32_t r, uint32_t color);
+  void    drawFastVLine(int32_t x, int32_t y, int32_t h, uint32_t color);
+  void    drawFastHLine(int32_t x, int32_t y, int32_t w, uint32_t color);
+
+  void    setCursor(int16_t x, int16_t y);
+  void    setTextSize(uint8_t size);
+  void    setTextFont(uint8_t font);
+  void    setTextColor(uint16_t fgcolor, uint16_t bgcolor);
+  void    print(..);    // from Print
+  void    println(..);  // from Print
+};
+@endcode
+
+@subsection chips Supported resistive chips
+- ADS7846 https://www.ti.com/lit/ds/symlink/ads7846.pdf
+- TSC2046 https://www.ti.com/lit/ds/symlink/tsc2046.pdf
+- XPT2064 https://www.buydisplay.com/download/ic/XPT2046.pdf
+- ADS7843 https://www.ti.com/lit/ds/symlink/ads7843.pdf
+- ADS7845 http://www.ti.com/lit/ds/symlink/ads7845.pdf
+- AD7873  https://www.analog.com/media/en/technical-documentation/data-sheets/ad7873.pdf
+- AD7843  https://www.analog.com/media/en/technical-documentation/data-sheets/ad7843.pdf
+
+@subsection raw Raw value definition
+All measured values (X, Y, Z1, Z2) has 12bit resolution, range is 0 .. 4095, bud valid range is 25 .. 4000.
+
+You can adjust the valid range with TFT_eTouchBase::setValidRawRange().
+@subsection time Time for next fetch
+You can adjust the time between measures with TFT_eTouchBase::setMeasureWait(). As long the time is not reached, you get the same value from TFT_eTouchBase::getRaw() or TFT_eTouch<T>::getXY().
+
+@subsection algo Fetch algorithm
+There are two variants in sbaa036.pdf (Figure 10 and 11 page 8). You can wait til measure is same last measure (Figure 10) or taking the n conversation (Figure 11) or averaging n measures.
+When you averaging you can also ignore min and max measure.
+
+You can adjust the algorithm with TFT_eTouchBase::setMeasure().
+
+@subsection calibrate Calibrate
+There is a document from TI slyt277.pdf whitch describes calibration. In my callibration i use only offset and scaling correction no rotation correction.
+You can get a new calibation (TFT_eTouchBase::Calibation) with TFT_eTouch<T>::getCalibration(). A existing calibration can be set with 
+TFT_eTouchBase::setCalibration().
+
+@section todo To Do
+@subsection read_write_cal calibation persistent
+We have to write a function to read/write the calibation from EPROM or SPIFLASH.
+bool TFT_eTouchBase::readCalibration(Calibration&), bool TFT_eTouchBase::writeCalibration(const Calibration&).
+
+@section reference Reference
+@subsection pdf External documentation 
+- http://www.ti.com/lit/an/sbaa036/sbaa036.pdf
+- http://www.ti.com/lit/an/slyt277/slyt277.pdf
+
+@subsection arduino Existing touch classes for Arduino
+- https://github.com/adafruit/Adafruit_STMPE610
+- https://github.com/PaulStoffregen/XPT2046_Touchscreen
+
+using:
+- https://gist.github.com/CelliesProjects/99a56121e7c8a7cb00d5b46270e74b75
+
+@subsection linux Linux kernel sources
+- {linux_scr}/include/linux/spi/ads7846.h
+- {linux_scr}/drivers/drivers/input/touchscreen/ads7846.c 
+
+- {linux_scr}/drivers/staging/fbtft
+*/
+EOF 

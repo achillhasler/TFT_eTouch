@@ -1,0 +1,32 @@
+#######################################
+# Syntax Coloring Map For TFT_eTouch
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+TFT_eTouch	KEYWORD1
+TFT_eTouchBase	KEYWORD1
+Calibation	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+init	KEYWORD2
+getCalibration	KEYWORD2
+setCalibration	KEYWORD2
+getXY	KEYWORD2
+getRZ	KEYWORD2
+getRaw	KEYWORD2
+setMeasure	KEYWORD2
+setValidRawRange	KEYWORD2
+setMeasureWait	KEYWORD2
+getMeasureWait	KEYWORD2
+setRXPlate	KEYWORD2
+getRXPlate	KEYWORD2
+setRZThreshold	KEYWORD2
+getRZThreshold	KEYWORD2
+setAcurateDistance	KEYWORD2
+getAcurateDistance	KEYWORD2
