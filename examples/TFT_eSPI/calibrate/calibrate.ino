@@ -20,7 +20,7 @@
 //------------------------------------------------------------------------------------------
 
 TFT_eSPI tft;
-TFT_eTouch<TFT_eSPI> touch(tft, TFT_ETOUCH_CS);
+TFT_eTouch<TFT_eSPI> touch(tft, TFT_ETOUCH_CS, 0xff, TFT_eSPI::getSPIinstance());
 
 void start_screen()
 {
@@ -71,11 +71,16 @@ void show_cursor(int16_t x, int16_t y)
   tft.print(rz);
   tft.println("    ");
   
+  if (rz > touch_.getRXPlate()*174/100)  tft().println("Pen                 ");
+  else if (rz >= touch_.getRXPlate()*66/100) tft().println("Finger              ");
+  else if (rz > touch_.getRXPlate()*15/100) tft().println("2 Finger            ");
+  else tft().println("+ 2 Finger        ");
+/*
   if (rz > touch.getRZThreshold()*58/100)  tft.println("Pen                 ");
   else if (rz >= touch.getRZThreshold()*22/100) tft.println("Finger              ");
   else if (rz > touch.getRZThreshold()*5/100) tft.println("2 Finger            ");
   else tft.println("more then 2 Finger");
-  
+*/
   if (!same_pos) {
     tft.drawFastHLine(x - size + 1, y, size - hole, TFT_WHITE);
     tft.drawFastHLine(x + hole, y, size - hole, TFT_WHITE);
@@ -88,23 +93,31 @@ void show_cursor(int16_t x, int16_t y)
 }
 
 //------------------------------------------------------------------------------------------
-#define MAX_CAL 4  /* 0 .. 4  set it to 0 when callData ok */
 
 void setup() {
   Serial.begin(115200);
+  delay(1000);
 
-  tft.init();
+  tft.begin();
   touch.init();
-//  touch.setMeasure(false, true, true, false, 1, false, false, false); // Differential mode fastest (each axis read only once, may work)
-//  touch.setMeasure(true, true, true, false, 1, false, false, false); // Differential mode faster (take second z bud first x, y. may work)
-//  touch.setMeasure(true, false, false, true, 14, true, true, false); // slowest (drop first and additional 16 measures. averaging 14 without min max value)
+//  touch.setMeasure(0, false, true, false, 3); // constructor defaults (take third measure, start with z axis)
+//  touch.setAveraging(false, false); // constructor defaults (without averaging)
+
+//  touch.setMeasure(0, true, true, false, 1); // Differential mode fastest (each axis read only once, may work)
+//  touch.setAcurateDistance(25); // in this mode acurate distance must be higher for getUserCalibration (default 10)
+
+//  touch.setMeasure(1, true, true, false, 1); // Differential mode faster (take second z bud first x, y. may work)
+//  touch.setAcurateDistance(25); // in this mode acurate distance must be higher for getUserCalibration (default 10)
+
+//  touch.setMeasure(10, false, false, true, 14); // slowest (drop 10 and additional 16 measures. averaging 14 with min max value)
+//  touch.setAveraging(true, true);
+
 //  touch.setMeasure(); // defaults (accurate all axis, start with x)
-  touch.setMeasure(true, true, true, true); // z with local min, acurate x,y (my favorite)
-//  touch.setMeasure(false, false, true, false, 3, false, false, false); // constructor defaults (take third measure, start with z axis)
-//  touch.setMeasure(false, false, false, false, 2, false, false, true); // Single-Ended mode (fastest) use 2'end measure
+//  touch.setMeasure(1, true, true, true); // z with local min, acurate x,y
+
 //  touch.setValidRawRange(10, 4085);
-  touch.setRXPlate(1000);
-  touch.setRZThreshold(3*1000);
+//  touch.setRXPlate(1000);
+//  touch.setRZThreshold(3*1000);
 
 #ifndef DEFAULT_CALIBRATION
   TFT_eTouchBase::Calibation calibation = { 265, 3790, 264, 3850, 2 }; // x and y axes have same direction on touch & display
@@ -115,7 +128,7 @@ void setup() {
   for (int rot = 0; rot < MAX_CALIBRATION; rot++) {
     // Set the rotation before we calibrate
     tft.setRotation(TFT_ROTATION + rot % 4);
-    touch.getCalibration(calibation, 8);
+    touch.getUserCalibration(calibation, 4);
   }
   touch.setCalibration(calibation);
 #endif
@@ -141,7 +154,7 @@ void loop(void) {
       if (x > tft.width() - 10) {
         TFT_eTouchBase::Calibation calibation;
         show_cursor(-1, -1); // hide cursor
-        touch.getCalibration(calibation, 4);
+        touch.getUserCalibration(calibation, 4);
         touch.setCalibration(calibation);
         start_screen();
         return;
@@ -152,12 +165,3 @@ void loop(void) {
   }
   else show_cursor(-1, -1); // hide cursor
 }
-
-#ifdef DOXYGEN
-int main()
-{ 
-  setup();
-  while(true) loop()
-  return 0;
-}
-#endif

@@ -7,23 +7,16 @@
 //  (C) Copyright Achill Hasler 2019.
 //
 //  Distributed under the Boost Software License, Version 1.0.
-//  See accompanying file at http://www.boost.org/LICENSE_1_0.txt
+//  See accompanying file at https://www.boost.org/LICENSE_1_0.txt
 //
 //
 //  See TFT_eTouch/docs/html/index.html for documentation.
 //
 
 // public inline members
-void TFT_eTouchBase::init()
-{
-  spi_.begin();
-  pinMode(cs_, OUTPUT);
-  digitalWrite(cs_, HIGH);
-}
-
 uint16_t TFT_eTouchBase::getRZ() const
 {
-  return rz_;
+  return raw_.rz;
 }
 
 void TFT_eTouchBase::setCalibration(const Calibation& data)
@@ -31,18 +24,28 @@ void TFT_eTouchBase::setCalibration(const Calibation& data)
   calibation_ = data;
 }
 
-void TFT_eTouchBase::setMeasure(bool drop_first, bool z_once, bool z_first, bool z_local_min, uint8_t count, bool averaging, bool ignore_min_max, bool single_ended)
+TFT_eTouchBase::Calibation& TFT_eTouchBase::calibration()
 {
-  drop_first_measure_ = drop_first;
+  return calibation_;
+}
+
+void TFT_eTouchBase::setMeasure(uint8_t drop_first, bool z_once, bool z_first, bool z_local_min, uint8_t count)
+{
+  drop_first_measures_ = drop_first;
   z_once_measure_ = z_once;
   z_first_measure_ = z_first;
   z_local_min_measure_ = z_local_min; 
   
   count_measure_ = count;
+}
+
+#ifdef TOUCH_USE_AVERAGING_CODE
+void TFT_eTouchBase::setAveraging(bool averaging, bool ignore_min_max)
+{
   averaging_measure_ = averaging; 
   ignore_min_max_measure_ = ignore_min_max;
-  single_ended_reference_mode_ = single_ended;
 }
+#endif // end TOUCH_USE_AVERAGING_CODE
 
 void TFT_eTouchBase::setValidRawRange(uint16_t min, uint16_t max)
 {
@@ -79,6 +82,12 @@ uint16_t TFT_eTouchBase::getRZThreshold() const
   return rz_threshold_;
 }
 
+bool TFT_eTouchBase::valid()
+{
+  return raw_.rz < rz_threshold_;
+}
+
+#ifdef TOUCH_USE_USER_CALIBRATION
 void TFT_eTouchBase::setAcurateDistance(uint16_t raw_difference)
 {
   acurate_difference_ = raw_difference;
@@ -87,12 +96,13 @@ uint16_t TFT_eTouchBase::getAcurateDistance() const
 {
   return acurate_difference_;
 }
+#endif // TOUCH_USE_USER_CALIBRATION
 
 // private inline members
 
 bool TFT_eTouchBase::is_touched()
 {
-  return rz_ != 0xffff;
+  return raw_.rz != 0xffff;
 }
 
 bool TFT_eTouchBase::in_range(uint16_t measure)

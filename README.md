@@ -1,4 +1,4 @@
 # TFT_eTouch
 generic touch support for resistive chips
 
-build the Doxygen docu for additional documentation
+unzip the Doxygen docu in docs for additional documentation

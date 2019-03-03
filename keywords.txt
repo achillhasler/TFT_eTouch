@@ -9,6 +9,8 @@
 TFT_eTouch	KEYWORD1
 TFT_eTouchBase	KEYWORD1
 Calibation	KEYWORD1
+Measure	KEYWORD1
+TouchPoint	KEYWORD1
 
 #######################################
 # Methods and Functions (KEYWORD2)
@@ -16,10 +18,15 @@ Calibation	KEYWORD1
 
 init	KEYWORD2
 getCalibration	KEYWORD2
+getUserCalibration	KEYWORD2
 setCalibration	KEYWORD2
+readCalibration	KEYWORD2
+writeCalibration	KEYWORD2
+calibration	KEYWORD2
 getXY	KEYWORD2
 getRZ	KEYWORD2
 getRaw	KEYWORD2
+transform KEYWORD2
 setMeasure	KEYWORD2
 setValidRawRange	KEYWORD2
 setMeasureWait	KEYWORD2

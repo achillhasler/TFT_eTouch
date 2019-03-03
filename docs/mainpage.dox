@@ -6,8 +6,10 @@
 
 // we have to list all sample programs to schow these in doxygen
 /**
-@example TFT_eSPIcalibrate.ino Calibration example for TFT_eSPI driver
 @example raw.ino Touch raw data example
+@example edit_calibation.ino Calibration example for TFT_eSPI driver
+@example Conways_Life.ino Application example for TFT_eSPI driver (compare TFT_eTouch with integrated Touch in TFT_eSPI)
+@example calibrate.ino Calibration example for TFT_eSPI driver (obsolete use edit_calibation.ino)
 */
 
 /**
@@ -25,9 +27,9 @@ The template parameter must be a Adafuit compatible display driver with followed
 @code
 class T {
 public:
-  int16_t height(void);
-  int16_t width(void);
-  uint8_t getRotation(void);
+  int16_t height(void) const;
+  int16_t width(void) const;
+  uint8_t getRotation(void) const;
   
   void    fillScreen(uint32_t color);
   void    drawPixel(uint32_t x, uint32_t y, uint32_t color);
@@ -38,10 +40,13 @@ public:
 
   void    setCursor(int16_t x, int16_t y);
   void    setTextSize(uint8_t size);
-  void    setTextFont(uint8_t font);
   void    setTextColor(uint16_t fgcolor, uint16_t bgcolor);
   void    print(..);    // from Print
   void    println(..);  // from Print
+
+  // when defined BASIC_FONT_SUPPORT follow function may be not avalible
+  void    setTextFont(uint8_t font);
+  void    drawString(..)
 };
 @endcode
 
@@ -59,13 +64,13 @@ All measured values (X, Y, Z1, Z2) has 12bit resolution, range is 0 .. 4095, bud
 
 You can adjust the valid range with TFT_eTouchBase::setValidRawRange().
 @subsection time Time for next fetch
-You can adjust the time between measures with TFT_eTouchBase::setMeasureWait(). As long the time is not reached, you get the same value from TFT_eTouchBase::getRaw() or TFT_eTouch<T>::getXY().
+You can adjust the time between measures with TFT_eTouchBase::setMeasureWait(). As long the time is not reached, you get the same value from TFT_eTouchBase::getRaw(), TFT_eTouch<T>::getXY() and TFT_eTouch<T>::get().
 
 @subsection algo Fetch algorithm
 There are two variants in sbaa036.pdf (Figure 10 and 11 page 8). You can wait til measure is same last measure (Figure 10) or taking the n conversation (Figure 11) or averaging n measures.
 When you averaging you can also ignore min and max measure.
 
-You can adjust the algorithm with TFT_eTouchBase::setMeasure().
+You can adjust the algorithm with TFT_eTouchBase::setMeasure() and TFT_eTouchBase::setAveraging().
 
 @subsection calibrate Calibrate
 There is a document from TI slyt277.pdf whitch describes calibration. In my callibration i use only offset and scaling correction no rotation correction.
@@ -74,8 +79,12 @@ TFT_eTouchBase::setCalibration().
 
 @section todo To Do
 @subsection read_write_cal calibation persistent
-We have to write a function to read/write the calibation from EPROM or SPIFLASH.
-bool TFT_eTouchBase::readCalibration(Calibration&), bool TFT_eTouchBase::writeCalibration(const Calibration&).
+We have to write a function to read/write the calibation from EPROM. (Atmel & Teensy missing) ESP done.
+bool TFT_eTouchBase::readCalibration(), bool TFT_eTouchBase::writeCalibration().
+
+@subsection gesture gesture recognition
+Next will be gesture recognition. stay, wipe left, wipe right, wipe up and wipe down. (with one ore two fingers)
+If its possible zoom in / out.
 
 @section reference Reference
 @subsection pdf External documentation 
@@ -94,5 +103,42 @@ using:
 - {linux_scr}/drivers/drivers/input/touchscreen/ads7846.c 
 
 - {linux_scr}/drivers/staging/fbtft
+
+@section history History
+- v0.4.0 First draft working with TFT_eSPI < 1.4.0
+- v0.5.0 tested with Tennsy 3.1, ESP32 added load save Configuration, added struct interface for raw & tft values, increasing speed when not touched. TFT_eSPI > 1.4.0 need patch!
+@subsection patch TFT_eSPI > 1.4.0
+- add static getSPIinstance() function, for getting spi bus used by touchscreen.
+- when default config, (VSPI Port) do not create a new var, use the SPI var exported by SPI.h
+Header file TFT_eSPI.h
+@code
+  void     getSetup(setup_t& tft_settings); // Sketch provides the instance to populate
++#ifndef ESP32_PARALLEL
++  static SPIClass& getSPIinstance();
++#endif
+
+  int32_t  cursor_x, cursor_y, padX;
+@endcode
+Sourcefile TFT_eSPI.cpp
+@code
+#if defined (ESP32)
+  #if !defined (ESP32_PARALLEL)
+    #ifdef USE_HSPI_PORT
+      SPIClass spi(HSPI);
+    #else // use default VSPI port
++-      SPIClass& spi = SPI; // use the predefined SPI variable which is defined by SPI.h
+    #endif
+  #endif
+#else // ESP8266
++-  SPIClass& spi = SPI; // use the predefined SPI variable which is defined by SPI.h
+#endif
+
++#ifndef ESP32_PARALLEL
++SPIClass& TFT_eSPI::getSPIinstance() { return spi; }
++#endif
+
+@endcode
+
+
 */
 EOF 

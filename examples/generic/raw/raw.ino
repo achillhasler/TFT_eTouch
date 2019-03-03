@@ -13,13 +13,13 @@
 
 #define TFT_ROTATION 3
 //#define MINMAX
-//define WITH_DISPLAY
+#define WITH_DISPLAY
 
 //------------------------------------------------------------------------------------------
 
 #ifdef WITH_DISPLAY
 TFT_eSPI tft;
-TFT_eTouch<TFT_eSPI> touch(tft, TFT_ETOUCH_CS);
+TFT_eTouch<TFT_eSPI> touch(tft, TFT_ETOUCH_CS, 0xff, TFT_eSPI::getSPIinstance());
 #else
 TFT_eTouchBase touch(TFT_ETOUCH_CS);
 #endif
@@ -28,22 +28,31 @@ void setup() {
   Serial.begin(115200);
 
 #ifdef WITH_DISPLAY
-  tft.init();
-#endif
+  tft.begin();
   touch.init();
-//  touch.setMeasure(false, true, true, false, 1, false, false, false); // Differential mode fastest (each axis read only once, may work)
-//  touch.setMeasure(true, true, true, false, 1, false, false, false); // Differential mode faster (take second z bud first x, y. may work)
-//  touch.setMeasure(true, false, false, true, 14, true, true, false); // slowest (drop first and additional 16 measures. averaging 14 without min max value)
-//  touch.setMeasure(); // defaults (accurate all axis, start with x)
-  touch.setMeasure(true, true, true, true); // z with local min, acurate x,y (my favorite)
-//  touch.setMeasure(false, false, true, false, 3, false, false, false); // constructor defaults (take third measure, start with z axis)
-//  touch.setMeasure(false, false, false, false, 2, false, false, true); // Single-Ended mode (fastest) use 2'end measure
-//  touch.setValidRawRange(10, 4085);
-  touch.setRXPlate(333);
-  touch.setRZThreshold(1000);
+#else
+  // raw test support only default SPI bus (MISO, MOSI & SCLK from pins_arduino.h)
+  touch.init(true);
+#endif
+  while (!Serial) ; // wait for Arduino Serial Monitor
+//  touch.setMeasure(0, false, true, false, 3); // constructor defaults (take third measure, start with z axis)
+//  touch.setAveraging(false, false); // constructor defaults (without averaging)
 
-//  TFT_eTouch<TFT_eSPI>::Callibation calData = { 265, 3790, 264, 3850, 2 };
-//  touch.setCalibration(calData);
+//  touch.setMeasure(0, true, true, false, 1); // Differential mode fastest (each axis read only once, may work)
+//  touch.setAcurateDistance(25); // in this mode acurate distance must be higher for getUserCalibration (default 10)
+
+//  touch.setMeasure(1, true, true, false, 1); // Differential mode faster (take second z bud first x, y. may work)
+//  touch.setAcurateDistance(25); // in this mode acurate distance must be higher for getUserCalibration (default 10)
+
+//  touch.setMeasure(10, false, false, true, 14); // slowest (drop 10 and additional 16 measures. averaging 14 with min max value)
+//  touch.setAveraging(true, true);
+
+//  touch.setMeasure(); // defaults (accurate all axis, start with x)
+//  touch.setMeasure(1, true, true, true); // z with local min, acurate x,y
+
+//  touch.setValidRawRange(10, 4085);
+//  touch.setRXPlate(1000);
+//  touch.setRZThreshold(1000*3);
 
 #ifdef WITH_DISPLAY
   tft.setRotation(TFT_ROTATION);
