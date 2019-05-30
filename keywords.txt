@@ -26,7 +26,7 @@ calibration	KEYWORD2
 getXY	KEYWORD2
 getRZ	KEYWORD2
 getRaw	KEYWORD2
-transform KEYWORD2
+transform	KEYWORD2
 setMeasure	KEYWORD2
 setValidRawRange	KEYWORD2
 setMeasureWait	KEYWORD2
