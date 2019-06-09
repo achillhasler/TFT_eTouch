@@ -38,6 +38,12 @@ TFT_eTouch<T>::TFT_eTouch(T& tft, uint8_t cs_pin, uint8_t penirq_pin, SPIClass& 
 }
 
 template <class T>
+void TFT_eTouch<T>::begin()
+{
+  init();
+}
+
+template <class T>
 void TFT_eTouch<T>::init()
 {
   TFT_eTouchBase::init(false);
@@ -85,17 +91,23 @@ bool TFT_eTouch<T>::getUserCalibration(Calibation& data, uint8_t xy_off)
   cal_pos[1].set(tft_.width() - 1 - xy_off, xy_off);  // Top Right
   cal_pos[2].set(tft_.width() - 1 - xy_off, tft_.height() - 1 - xy_off); // Down Right
   cal_pos[3].set(xy_off, tft_.height() - 1 - xy_off);  // Down Left
-  
-  while (!handleTouchCalibrationTarget(cal_pos[0])) { delay(1000); }
-  while (!handleTouchCalibrationTarget(cal_pos[1])) { delay(1000); }
-  while (!handleTouchCalibrationTarget(cal_pos[2])) { delay(1000); }
-  while (!handleTouchCalibrationTarget(cal_pos[3])) { delay(1000); }
+  for (int i = 0; i < 4; i++) {
+    uint8_t try_cnt = 4;
+    reset();  // clear FIR filter when used
+    while (try_cnt > 0 && !handleTouchCalibrationTarget(cal_pos[i])) {
+      reset();
+      delay(500);
+      try_cnt--;
+    }
+  }
 
 #ifdef TOUCH_SERIAL_DEBUG
-  Serial.print("p0 "); cal_pos[0].print();
-  Serial.print("p1 "); cal_pos[1].print();
-  Serial.print("p2 "); cal_pos[2].print();
-  Serial.print("p3 "); cal_pos[3].print();
+  if (Serial) {
+    Serial.print("p0 "); cal_pos[0].print();
+    Serial.print("p1 "); cal_pos[1].print();
+    Serial.print("p2 "); cal_pos[2].print();
+    Serial.print("p3 "); cal_pos[3].print();
+  }
 #endif
 
   for (int i = 0; i < 4; i++) {
@@ -113,26 +125,32 @@ bool TFT_eTouch<T>::getUserCalibration(Calibation& data, uint8_t xy_off)
   }
 
 #ifdef TOUCH_SERIAL_DEBUG
-  Serial.print("Rotation: tft ");
-  Serial.print(user_r);
-  Serial.print(" touch ");
-  Serial.println(touch_r);
+  if (Serial) {
+    Serial.print("Rotation: tft ");
+    Serial.print(user_r);
+    Serial.print(" touch ");
+    Serial.println(touch_r);
+  }
 #endif
 
   int16_t d_xs = cal_pos[1].scr_x - cal_pos[0].scr_x;
   int16_t d_xt = (cal_pos[(touch_r + 1) % 4].touch_x + cal_pos[(touch_r + 2) % 4].touch_x)/2 - (cal_pos[touch_r + 0].touch_x + cal_pos[(touch_r + 3) % 4].touch_x)/2;
 
 #ifdef TOUCH_SERIAL_DEBUG
-  Serial.print("dx ");
-  Serial.print(d_xs);
-  Serial.print(", ");
-  Serial.print(d_xt);
+  if (Serial) {
+    Serial.print("dx ");
+    Serial.print(d_xs);
+    Serial.print(", ");
+    Serial.print(d_xt);
+  }
 #endif
   
   int16_t x0 = cal_pos[0].scr_x - d_xs * (cal_pos[touch_r + 0].touch_x+cal_pos[(touch_r + 3) % 4].touch_x) / (d_xt * 2);
 #ifdef TOUCH_SERIAL_DEBUG
-  Serial.print(", ");
-  Serial.println(x0);
+  if (Serial) {
+    Serial.print(", ");
+    Serial.println(x0);
+  }
 #endif
   
   data.x0 = -x0 * d_xt / d_xs;
@@ -142,17 +160,21 @@ bool TFT_eTouch<T>::getUserCalibration(Calibation& data, uint8_t xy_off)
   int16_t d_yt = (cal_pos[(touch_r + 2) % 4].touch_y + cal_pos[(touch_r + 3) % 4].touch_y)/2 - (cal_pos[touch_r + 0].touch_y + cal_pos[(touch_r + 1) % 4].touch_y)/2;
 
 #ifdef TOUCH_SERIAL_DEBUG
-  Serial.print("dy ");
-  Serial.print(d_ys);
-  Serial.print(", ");
-  Serial.print(d_yt);
+  if (Serial) {
+    Serial.print("dy ");
+    Serial.print(d_ys);
+    Serial.print(", ");
+    Serial.print(d_yt);
+  }
 #endif
 
   int16_t y0 = cal_pos[0].scr_y - d_ys * (cal_pos[touch_r + 0].touch_y+cal_pos[(touch_r + 1) % 4].touch_y) / (d_yt * 2);
 
 #ifdef TOUCH_SERIAL_DEBUG
-  Serial.print(", ");
-  Serial.println(y0);
+  if (Serial) {
+    Serial.print(", ");
+    Serial.println(y0);
+  }
 #endif
   
   data.y0 = -y0 * d_yt / d_ys;
@@ -161,22 +183,34 @@ bool TFT_eTouch<T>::getUserCalibration(Calibation& data, uint8_t xy_off)
   data.rel_rotation = (user_r + touch_r) % 4;
   
 #ifdef TOUCH_SERIAL_DEBUG
-  Serial.print("x: "); Serial.print(data.x0); Serial.print(" "); Serial.print(data.x1);
-  Serial.print(" y: "); Serial.print(data.y0); Serial.print(" "); Serial.print(data.y1);
-  Serial.print(" rot "); Serial.println(data.rel_rotation);
+  if (Serial) {
+    Serial.print("x: "); Serial.print(data.x0); Serial.print(" "); Serial.print(data.x1);
+    Serial.print(" y: "); Serial.print(data.y0); Serial.print(" "); Serial.print(data.y1);
+    Serial.print(" rot "); Serial.println(data.rel_rotation);
+  }
 #endif
 
-#ifdef TOUCH_SERIAL_DEBUG
-  Serial.print("TFT_eTouchBase::Calibation calibation = { ");
-  Serial.print(data.x0); Serial.print(", "); 
-  Serial.print(data.x1); Serial.print(", ");
-  Serial.print(data.y0); Serial.print(", "); 
-  Serial.print(data.y1); Serial.print(", "); 
-  Serial.print(data.rel_rotation); Serial.println(" };"); 
-#endif
+  if (Serial) {
+    Serial.printf("#define TOUCH_DEFAULT_CALIBRATION { %i, %i, %i, %i, %i }\n",
+      data.x0, data.x1, data.y0, data.y1, data.rel_rotation);
+  }
 
   return true;
 }
+/*
+acurate on p[4, 4] is 100, dx 292, dy 8
+acurate on p[4, 4] is 100, dx 268, dy 12
+acurate on p[4, 4] is 100, dx 273, dy 11
+acurate on p[4, 4] is 100, dx 294, dy 5
+acurate on p[4, 4] is 100, dx 38, dy 16
+acurate on p[315, 4] is 100, dx 43, dy 81
+acurate on p[315, 235] is 100, dx 152, dy 113
+acurate on p[315, 235] is 100, dx 189, dy 129
+acurate on p[315, 235] is 100, dx 93, dy 68
+acurate on p[4, 235] is 100, dx 54, dy 7
+#define TOUCH_DEFAULT_CALIBRATION { 263, 3765, 3873, 326, 0 }
+*/
+
 #endif // TOUCH_USE_USER_CALIBRATION
 
 template <class T>
@@ -188,8 +222,8 @@ bool TFT_eTouch<T>::transform(const Measure& raw, TouchPoint& tp)
     int16_t dx = calibation_.x1 - calibation_.x0;
     int16_t dy = calibation_.y1 - calibation_.y0;
 
-    int16_t xs, xs_max = tft_.width() - 1;
-    int16_t ys, ys_max = tft_.height() - 1;
+    int16_t xs=0, xs_max = tft_.width() - 1;
+    int16_t ys=0, ys_max = tft_.height() - 1;
 
     switch (d_rot) {
     case 0:
@@ -254,38 +288,11 @@ bool TFT_eTouch<T>::get(TouchPoint& tp)
 template <class T>
 bool TFT_eTouch<T>::handleTouchCalibrationTarget(CalibrationPoint& point)
 {
-  bool acurate = false;
-  const uint8_t size = 10, hole = 3;
-  uint16_t sum_x = 0, sum_y = 0;
-  uint16_t max_x = 0, max_y = 0;
-  uint16_t min_x = 0xffff, min_y = 0xffff;
-
   tft_.fillRect(point.scr_x - 4, point.scr_y - 4, 9, 9, TFT_BLUE);
   tft_.fillCircle(point.scr_x, point.scr_y, 4, TFT_WHITE);
   tft_.fillCircle(point.scr_x, point.scr_y, 2, TFT_BLUE);
 
-  delay(500);
-  uint8_t cnt = 0;
-  uint16_t x, y, z;
-  uint16_t org_wait = getMeasureWait();
-  setMeasureWait(0);
-  while (cnt < 16) {
-    update(false);
-    if (valid()) {
-      sum_x += raw_.x; sum_y += raw_.y;
-      if (max_x < raw_.x) max_x = raw_.x;
-      if (max_y < raw_.y) max_y = raw_.y;
-      if (min_x > raw_.x) min_x = raw_.x;
-      if (min_y > raw_.y) min_y = raw_.y;
-      cnt++;
-    }
-  }
-  setMeasureWait(org_wait);
-  if ( (max_x - min_x <= getAcurateDistance()) && (max_y - min_y <= getAcurateDistance()) ) {
-    acurate = true;
-    point.touch_x = sum_x / 16;
-    point.touch_y = sum_y / 16;
-  }
+  bool acurate = acurateCalibrationTarget(point);
 
   tft_.fillRect(point.scr_x - 4, point.scr_y - 4, 9, 9, acurate ? TFT_GREEN : TFT_RED);
   tft_.fillCircle(point.scr_x, point.scr_y, 4, TFT_WHITE);
@@ -301,11 +308,7 @@ bool TFT_eTouch<T>::handleTouchCalibrationTarget(CalibrationPoint& point)
 template <class T>
 bool TFT_eTouch<T>::handleTouchCalibrationTarget(CalibrationPoint& point)
 {
-  bool acurate = false;
   const uint8_t size = 10, hole = 3;
-  uint16_t sum_x = 0, sum_y = 0;
-  uint16_t max_x = 0, max_y = 0;
-  uint16_t min_x = 0xffff, min_y = 0xffff;
 
   tft_.fillCircle(point.scr_x, point.scr_y, 10, TFT_WHITE);
   tft_.fillCircle(point.scr_x, point.scr_y, 9, TFT_BLUE);
@@ -327,28 +330,7 @@ bool TFT_eTouch<T>::handleTouchCalibrationTarget(CalibrationPoint& point)
   tft_.drawFastVLine(point.scr_x, point.scr_y - size + 1, size - hole, TFT_WHITE);
   tft_.drawFastVLine(point.scr_x, point.scr_y + hole, size - hole, TFT_WHITE);
 
-  delay(500);
-  uint8_t cnt = 0;
-  uint16_t x, y, z;
-  uint16_t org_wait = getMeasureWait();
-  setMeasureWait(0);
-  while (cnt < 16) {
-    update(false);
-    if (valid()) {
-      sum_x += raw_.x; sum_y += raw_.y;
-      if (max_x < raw_.x) max_x = raw_.x;
-      if (max_y < raw_.y) max_y = raw_.y;
-      if (min_x > raw_.x) min_x = raw_.x;
-      if (min_y > raw_.y) min_y = raw_.y;
-      cnt++;
-    }
-  }
-  setMeasureWait(org_wait);
-  if ( (max_x - min_x <= getAcurateDistance()) && (max_y - min_y <= getAcurateDistance()) ) {
-    acurate = true;
-    point.touch_x = sum_x / 16;
-    point.touch_y = sum_y / 16;
-  }
+  bool acurate = acurateCalibrationTarget(point);
 
   tft_.fillCircle(point.scr_x, point.scr_y, 9, acurate ? TFT_GREEN : TFT_RED);
   tft_.fillCircle(point.scr_x, point.scr_y, 4, TFT_WHITE);

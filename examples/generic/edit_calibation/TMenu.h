@@ -17,7 +17,8 @@
 
 class TMenu
 {
-  TFT_eTouch<TFT_eSPI>& touch_;
+  TFT_eTouch<TFT_Driver>& touch_;
+
   MenuCounter mc_[4];
   uint8_t offset_;
 #ifdef TEST_RAW_INTERFACE
@@ -36,9 +37,9 @@ class TMenu
   void info(uint8_t offset);
 
   public:
-  TMenu(TFT_eTouch<TFT_eSPI>& touch, uint8_t offset = 18);
+  TMenu(TFT_eTouch<TFT_Driver>& touch, uint8_t offset = 18);
   
-  TFT_eSPI& tft();
+  TFT_Driver& tft();
 
   EventType pen_up();
   EventType pen_down();

@@ -12,28 +12,37 @@
 void MenuCounter::draw_move(int16_t x_pos, int16_t y_pos, bool flag)
 {
   if (x_grow_) {
+    const int16_t xm = x_pos + fw_*8/16;
+    const int16_t xa = x_pos + fw_*4/16;
+    const int16_t xe = x_pos + fw_*12/16;
     if (flag) {
       // up
-      // menu_->tft().
-      tft().drawLine(x_pos + fw_*4/16, y_pos, x_pos + fw_*8/16, y_pos + fw_*4/16, TFT_WHITE);
-      tft().drawLine(x_pos + fw_*8/16, y_pos + fw_*4/16, x_pos + fw_*12/16, y_pos, TFT_WHITE);
+      const int16_t ym = y_pos + fw_*4/16;
+      tft().drawLine(xa, y_pos, xm, ym, TFT_WHITE);
+      tft().drawLine(xe, y_pos, xm, ym, TFT_WHITE);
     }
     else {
       // down
-      tft().drawLine(x_pos + fw_*4/16, y_pos, x_pos + fw_*8/16, y_pos - fw_*4/16, TFT_WHITE);
-      tft().drawLine(x_pos + fw_*8/16, y_pos - fw_*4/16, x_pos + fw_*12/16, y_pos, TFT_WHITE);
+      const int16_t ym = y_pos - fw_*4/16;
+      tft().drawLine(xa, y_pos, xm, ym, TFT_WHITE);
+      tft().drawLine(xe, y_pos, xm, ym, TFT_WHITE);
     }
   }
   else {
+    const int16_t ym = y_pos + fw_*8/16;
+    const int16_t ya = y_pos + fw_*4/16;
+    const int16_t ye = y_pos + fw_*12/16;
     if (flag) {
       // right
-      tft().drawLine(x_pos, y_pos + fw_*4/16, x_pos + fw_*4/16, y_pos + fw_*8/16, TFT_WHITE);
-      tft().drawLine(x_pos + fw_*4/16, y_pos + fw_*8/16, x_pos, y_pos + fw_*12/16, TFT_WHITE);
+      const int16_t xm = x_pos + fw_*4/16;
+      tft().drawLine(x_pos, ya, xm, ym, TFT_WHITE);
+      tft().drawLine(x_pos, ye, xm, ym, TFT_WHITE);
     }
     else {
       // left
-      tft().drawLine(x_pos, y_pos + fw_*4/16, x_pos - fw_*4/16, y_pos + fw_*8/16, TFT_WHITE);
-      tft().drawLine(x_pos - fw_*4/16, y_pos + fw_*8/16, x_pos, y_pos + fw_*12/16, TFT_WHITE);
+      const int16_t xm = x_pos - fw_*4/16;
+      tft().drawLine(x_pos, ya, xm, ym, TFT_WHITE);
+      tft().drawLine(x_pos, ye, xm, ym, TFT_WHITE);
     }
   }
 }
@@ -55,7 +64,7 @@ void MenuCounter::oner(TMenu* menu)
   menu_ = menu;
 }
 
-TFT_eSPI& MenuCounter::tft() const
+TFT_Driver& MenuCounter::tft() const
 {
   return menu_->tft();
 }
@@ -134,6 +143,14 @@ void MenuCounter::draw()
 
   if (activ_ == 2) tft().setTextColor(TFT_WHITE, TFT_BLUE);
 
+#ifdef BASIC_FONT_SUPPORT
+#define CH_X_OFF 8
+#define CH_Y_OFF 7
+#else
+#define CH_X_OFF 6
+#define CH_Y_OFF 3
+#endif
+
   if (x_grow_) {
     if (last_activ_ < 5 && activ_ != last_activ_) {
       tft().fillRect(x_p_ + 1 + last_activ_ * fw_, y_p_ + 1, fw_-1, fw_-1, TFT_BLACK);
@@ -151,7 +168,7 @@ void MenuCounter::draw()
 
     draw_move(x_p_ + fw_, y_p_ + fw_*6/16, true);
 
-    tft().setCursor(x_p_ + 2*fw_ + 6, y_p_ + 3);
+    tft().setCursor(x_p_ + 2*fw_ + CH_X_OFF, y_p_ + CH_Y_OFF);
     tft().print(ch_);
 
     draw_move(x_p_ + 3*fw_, y_p_ + fw_*10/16, false);
@@ -177,7 +194,7 @@ void MenuCounter::draw()
 
     draw_move(x_p_ + fw_*10/16, y_p_ + fw_, false);
 
-    tft().setCursor(x_p_ + 6, y_p_ + 2*fw_ + 3);
+    tft().setCursor(x_p_ + CH_X_OFF, y_p_ + 2*fw_ + CH_Y_OFF);
     tft().print(ch_);
 
     draw_move(x_p_ + fw_*6/16, y_p_ + 3*fw_, true);

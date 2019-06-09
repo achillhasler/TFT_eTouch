@@ -47,7 +47,7 @@ class MenuCounter
   MenuCounter(uint8_t fw = 20);
 
   void oner(TMenu* menu);
-  TFT_eSPI& tft() const;
+  TFT_Driver& tft() const;
 
   void pos(int16_t x_p, int16_t y_p, bool horizontal)
   { x_p_ = x_p; y_p_ = y_p; x_grow_ = horizontal; }

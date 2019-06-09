@@ -9,9 +9,15 @@
 //  See TFT_eTouch/docs/html/index.html for documentation.
 //
 
+#if (defined (ESP8266) || defined (ESP32)) && !defined (ESP_PLATFORM)
+#define ESP_PLATFORM
+#endif
+
 #ifdef ESP_PLATFORM
 #include <FS.h>
+#ifdef ESP32
 #include <SPIFFS.h>
+#endif
 #endif
 
 #include <TFT_eTouchBase.h>
@@ -37,14 +43,36 @@ TFT_eTouchBase::TFT_eTouchBase(uint8_t cs_pin, uint8_t penirq_pin, SPIClass& spi
 #endif // end TOUCH_USE_AVERAGING_CODE
 
 , raw_valid_min_(25), raw_valid_max_(4000)
-, last_measure_time_ms_(0), measure_wait_ms_(5)
+, last_measure_time_us_(0), measure_wait_ms_(5)
 , rx_plate_(1000/3)
 , rz_threshold_(1000)
 #ifdef TOUCH_USE_USER_CALIBRATION
 , acurate_difference_(10)
 #endif // TOUCH_USE_USER_CALIBRATION
 {
-  calibation_ = { 300, 3700, 300, 3700, 2 };
+  calibation_ = TOUCH_DEFAULT_CALIBRATION;
+
+#ifdef TOUCH_FILTER_TYPE
+# ifdef TOUCH_X_FILTER 
+  x_filter_ = new TOUCH_X_FILTER(TOUCH_FILTER_TYPE);
+  if (!x_filter_ && Serial) {
+    Serial.println("coult not allocate x_filter");
+  }
+# endif
+# ifdef TOUCH_Y_FILTER 
+  y_filter_ = new TOUCH_Y_FILTER(TOUCH_FILTER_TYPE);
+  if (!y_filter_ && Serial) {
+    Serial.println("coult not allocate y_filter");
+  }
+# endif
+# ifdef TOUCH_Z_FILTER 
+  z1_filter_ = new TOUCH_Z_FILTER(TOUCH_FILTER_TYPE);
+  z2_filter_ = new TOUCH_Z_FILTER(TOUCH_FILTER_TYPE);
+  if ((!z1_filter_ || !z2_filter_) && Serial) {
+    Serial.println("coult not allocate z_filter");
+  }
+# endif
+#endif
 }
 
 void TFT_eTouchBase::init(bool spi_init)
@@ -56,10 +84,12 @@ void TFT_eTouchBase::init(bool spi_init)
 #ifdef ESP_PLATFORM
   // check file system
   if (!SPIFFS.begin()) {
-    Serial.println("formating SPIFFS file system");
+    if (Serial) Serial.println("formating SPIFFS file system");
 
     SPIFFS.format();
-    SPIFFS.begin();
+    if (!SPIFFS.begin()) {
+      if (Serial) Serial.println("formating SPIFFS file system failed, check Tools/Flash size: != no SPIFFS");
+    }
   }
 #endif
 }
@@ -111,15 +141,15 @@ bool TFT_eTouchBase::readCalibration(const char* descr)
       if (calfile.readBytes((char *)&data, sizeof(data)) == sizeof(data)) {
         ret = true;
         calibation_ = data;
-        Serial.printf("Calibration: %s x %u, %u, y %u, %u, r %u\n", descr, calibation_.x0, calibation_.x1, calibation_.y0, calibation_.y1, calibation_.rel_rotation);
+        if (Serial) Serial.printf("Calibration: %s x %u, %u, y %u, %u, r %u\n", descr, calibation_.x0, calibation_.x1, calibation_.y0, calibation_.y1, calibation_.rel_rotation);
       }
-      else Serial.println("Calibration File read error");
+      else if (Serial) Serial.println("Calibration file read error");
       calfile.close();
     }
-    else Serial.println("Calibration File open for read error");
+    else if (Serial) Serial.println("Calibration file open for read error");
   }
 #else
-  Serial.println("TFT_eTouchBase::readCalibration() not implemented");
+  if (Serial) Serial.println("TFT_eTouchBase::readCalibration() not implemented");
 #endif
   return ret;
 }
@@ -131,14 +161,25 @@ bool TFT_eTouchBase::writeCalibration(const char* descr)
 #ifdef ESP_PLATFORM
   File calfile = SPIFFS.open(descr, "w");
   if (calfile) {
-    calfile.write((const unsigned char *)&calibation_, sizeof(calibation_));
+    ret = calfile.write((const unsigned char *)&calibation_, sizeof(calibation_)) == sizeof(calibation_);
     calfile.close();
-    ret = true;
   }
-  else Serial.println("Calibration File open for write error");
+  if (!ret && Serial) {
+    Serial.print("Calibration file write error, ");
+    if (calfile) {
+      Serial.println("cant write, size mismatch");
+    }
+    else {
+      Serial.println("cant open");
+    }
+  }
 #else
-  Serial.println("TFT_eTouchBase::writeCalibration() not implemented");
+  if (Serial) Serial.println("TFT_eTouchBase::writeCalibration() not implemented");
 #endif
+  if (!ret && Serial) {
+    Serial.printf("#define TOUCH_DEFAULT_CALIBRATION { %i, %i, %i, %i, %i }\n",
+      calibation_.x0, calibation_.x1, calibation_.y0, calibation_.y1, calibation_.rel_rotation);
+  }
   return ret;
 }
 
@@ -152,14 +193,10 @@ void TFT_eTouchBase::update(bool only_z1)
 #endif // end TOUCH_USE_PENIRQ_CODE
 
 	uint32_t now = micros();
-	if (now < last_measure_time_ms_ + measure_wait_ms_ * 1000) return;
-  last_measure_time_ms_ = now;
+	if (now < last_measure_time_us_ + measure_wait_ms_ * 1000) return;
+  last_measure_time_us_ = now;
 
   fetch_raw(only_z1);
-
-#ifdef TOUCH_SERIAL_CONVERSATION_TIME
-  Serial.printf("TFT_eTouchBase::update() %d microseconds\n", micros() - last_measure_time_ms_);
-#endif
   
 #ifdef TOUCH_USE_PENIRQ_CODE
   if (penirq_ != 0xff) {
@@ -167,6 +204,61 @@ void TFT_eTouchBase::update(bool only_z1)
 	  else update_allowed_ = valid();
   }
 #endif // end TOUCH_USE_PENIRQ_CODE
+
+#ifdef TOUCH_FILTER_TYPE
+  if (!only_z1 && raw_.rz != 0xffff) {
+    bool empty = false;
+    uint16_t val;
+# ifdef TOUCH_X_FILTER
+    val = x_filter_->next(raw_.x);
+    if (val == 0) {
+      empty = true;
+#   ifdef TOUCH_SERIAL_DEBUG
+      if (Serial) {
+        Serial.print(x_filter_->filled());
+        Serial.print('/');
+        Serial.print(x_filter_->size());
+        Serial.print(" x filter fill ");
+        Serial.println(raw_.x);
+      }
+#   endif
+    }
+    else raw_.x = val;
+# endif
+# ifdef TOUCH_Y_FILTER
+    val = y_filter_->next(raw_.y);
+    if (val == 0) {
+      empty = true;
+#   ifdef TOUCH_SERIAL_DEBUG
+      if (Serial) {
+        Serial.print(y_filter_->filled());
+        Serial.print('/');
+        Serial.print(y_filter_->size());
+        Serial.print(" y filter fill ");
+        Serial.println(raw_.y);
+      }
+#   endif
+    }
+    else raw_.y = val;
+# endif
+# ifdef TOUCH_Z_FILTER
+    val = z1_filter_->next(raw_.z1);
+    if (val == 0) empty = true;
+    else raw_.z1 = val;
+
+    val = z2_filter_->next(raw_.z2);
+    if (val == 0) empty = true;
+    else raw_.z2 = val;
+# endif
+    if (empty) {
+      raw_.rz = 0xffff;
+    }
+  }
+#endif
+
+#ifdef TOUCH_SERIAL_CONVERSATION_TIME
+  if (Serial) Serial.printf("TFT_eTouchBase::update() %d microseconds\n", micros() - last_measure_time_us_);
+#endif
 }
 
 
@@ -240,7 +332,6 @@ void TFT_eTouchBase::fetch_raw(bool only_z1)
         }
         while (drop_cnt-- > 0) spi_.transfer16(Z2_MEASURE);
         drop_cnt = drop_first_measures_;
-//        if (drop_first_measure_) spi_.transfer16(Z2_MEASURE);
         raw_.z2 = (spi_.transfer16(ctrl) >> 3) & 0x0fff; // X Measure
         if (!in_range(raw_.z2)) {
           has_touch = false;
@@ -283,8 +374,6 @@ void TFT_eTouchBase::fetch_raw(bool only_z1)
         }
         drop_cnt = drop_first_measures_;
         if (!has_touch) break;
-//        while (drop_cnt-- > 0) spi_.transfer16(ctrl);
-//        if (drop_first_measure_) spi_.transfer16(ctrl);
         if (ignore_min_max_measure_) {
           data2 += 2;
         }
@@ -413,10 +502,14 @@ void TFT_eTouchBase::fetch_raw(bool only_z1)
 
 #ifdef TOUCH_SERIAL_DEBUG_FETCH //
   if (!has_touch) {
-    Serial.print("raw measure out of range value: "); Serial.print(data1); Serial.print(" ctrl: 0x"); Serial.println(ctrl, BIN);
+    if (Serial) {
+      Serial.print("raw measure out of range value: ");
+      Serial.print(data1);
+      Serial.print(" ctrl: 0x");
+      Serial.println(ctrl, BIN);
+    }
   }
 #endif
-
   if (has_touch && raw_.z1 > 0) { // if z1 is 0 we get a division by 0 exception!
     if (raw_.z1 >= raw_.z2) raw_.rz = 0;  // more then 2 Finger
 //    else raw_.rz = (uint16_t)((((int32_t)rx_plate_ * raw_.z2 / raw_.z1) * raw_.x / 4096) - (int32_t)rx_plate_ * raw_.x / 4096);
@@ -437,14 +530,70 @@ void TFT_eTouchBase::fetch_raw(bool only_z1)
 void TFT_eTouchBase::CalibrationPoint::print()
 {
 #ifdef TOUCH_SERIAL_DEBUG
-  Serial.print("x,y scr: ");
-  Serial.print(scr_x);
-  Serial.print(",");
-  Serial.print(scr_y);
-  Serial.print(" touch: ");
-  Serial.print(touch_x);
-  Serial.print(",");
-  Serial.println(touch_y);
+  if (Serial) {
+    Serial.print("x,y scr: ");
+    Serial.print(scr_x);
+    Serial.print(",");
+    Serial.print(scr_y);
+    Serial.print(" touch: ");
+    Serial.print(touch_x);
+    Serial.print(",");
+    Serial.println(touch_y);
+  }
 #endif
 }
+
+bool TFT_eTouchBase::acurateCalibrationTarget(CalibrationPoint& point)
+{
+  bool acurate = false;
+  reset(); // empty FIR filter when used
+  delay(500);
+  uint8_t cnt = 0;
+  uint16_t max_x = 0, max_y = 0;
+  uint16_t min_x = 0xffff, min_y = 0xffff;
+  uint16_t sum_x = 0, sum_y = 0;
+  uint16_t org_wait = getMeasureWait();
+  setMeasureWait(0);
+  while (cnt < 16) {
+    update(false);
+    if (valid()) {
+      sum_x += raw_.x; sum_y += raw_.y;
+      if (max_x < raw_.x) max_x = raw_.x;
+      if (max_y < raw_.y) max_y = raw_.y;
+      if (min_x > raw_.x) min_x = raw_.x;
+      if (min_y > raw_.y) min_y = raw_.y;
+      cnt++;
+    }
+    else {
+      delay(1); // wait for the first touch (ESP8266 crash when not waiting)
+    }
+  }
+  setMeasureWait(org_wait);
+  point.touch_x = (sum_x - max_x - min_x) / 14;
+  point.touch_y = (sum_y - max_y - min_y) / 14;
+  
+#ifdef TOUCH_SERIAL_DEBUG
+  if (Serial) {
+    Serial.printf("acurate on point[%i, %i](%i, %i) dx: %i dy: %i", point.scr_x, point.scr_y, point.touch_x, point.touch_y, max_x - min_x, max_y - min_y);
+    if ( (max_x - min_x <= getAcurateDistance()) && (max_y - min_y <= getAcurateDistance()) ) {
+      acurate = true;
+      Serial.printf(" ok\n");
+    }
+    else {
+      Serial.printf(" > %i nok\n", getAcurateDistance());
+    }
+  }
+  else {
+    if ( (max_x - min_x <= getAcurateDistance()) && (max_y - min_y <= getAcurateDistance()) ) {
+      acurate = true;
+    }
+  }
+#else
+  if ( (max_x - min_x <= getAcurateDistance()) && (max_y - min_y <= getAcurateDistance()) ) {
+    acurate = true;
+  }
+#endif
+  return acurate;
+}
+
 #endif // TOUCH_USE_USER_CALIBRATION

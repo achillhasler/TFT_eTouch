@@ -2,7 +2,7 @@
 #define TFT_E_TOUCH_H
 
 //
-//  TFT_eTouch.inl
+//  TFT_eTouch.h
 //
 //  (C) Copyright Achill Hasler 2019.
 //
@@ -26,12 +26,14 @@ public:
 /** 
   * Create instance with defaults.
   *
-  * Display and touch must use the same spi bus.
+  * Display and touch mostly use the same spi bus (SPI). This will by configured by the tft driver on tft.begin() and
+  * the touch driver use this configuration.
+  * When not you have to look that your used spi parameter get configured elsewhere bevor you call touch.begin().
   * @brief  constructor
   * @param  tft used display, must be Adafuit compatible
-  * @param  cs_pin touch chip select line prcessor pin
-  * @param  penirq_pin touch penirq line prcessor pin. 0xff disable touch interrupt
-  * @param  spi used bus
+  * @param  cs_pin touch chip select line processor pin
+  * @param  penirq_pin touch penirq line processor pin. 0xff disable touch interrupt
+  * @param  spi used spi bus, configured by the tft driver
   */
             TFT_eTouch(T& tft, uint8_t cs_pin, uint8_t penirq_pin = 0xff, SPIClass& spi = SPI);
 
@@ -41,6 +43,11 @@ public:
   */
 	void      init();
 
+/** 
+  * Initialize the processor pins and initialize interrupt handling.
+  * @brief  begin touch
+  */
+	void      begin();
 
 /** 
   * Get Adafuit compatible display driver.
@@ -92,11 +99,11 @@ public:
   bool      get(TouchPoint& tp);
   
 #ifdef TOUCH_USE_PENIRQ_CODE
-#ifdef ESP32
+# ifdef ESP32
   static void IRAM_ATTR cb_isr_touch_fnk();
-#else
+# else
   static void cb_isr_touch_fnk();
-#endif
+# endif
 #endif // end TOUCH_USE_PENIRQ_CODE
 
 private:

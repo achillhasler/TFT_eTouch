@@ -1,7 +1,11 @@
 /**
   Sketch to see raw touch values.
 
-  The sketch has been tested on the ESP32 with compatible ADS7846 chip.
+  The sketch has been tested with compatible ADS7846 chip on:
+  - ESP32 (TFT_eSPI, Adafruit_ILI9341)
+  - ESP8322 (TFT_eSPI)
+  - Tensy 3.1 (ILI9341_t3)
+  - Arduino Nano (Adafruit_ILI9341)
 */
 
 #include <SPI.h>
@@ -9,29 +13,76 @@
 
 //------------------------------------------------------------------------------------------
 
-#define TFT_ETOUCH_CS 16
-
-#define TFT_ROTATION 3
+#define TFT_ROTATION 1
 //#define MINMAX
-#define WITH_DISPLAY
+#define WITH_DISPLAY // some Displays make touch signal noisy
+//#define SECOND_SPI_PORT
 
+//------------------------------------------------------------------------------------------
+#ifdef SECOND_SPI_PORT
+#define TFT_ETOUCH_SCK 14
+#define TFT_ETOUCH_MISO 12
+#define TFT_ETOUCH_MOSI 13
+
+SPIClass hSPI(HSPI);
+#endif
 //------------------------------------------------------------------------------------------
 
 #ifdef WITH_DISPLAY
+# ifdef _ADAFRUIT_ILI9341H_
+Adafruit_ILI9341 tft(TFT_CS, TFT_DC, TFT_RST);
+TFT_eTouch<Adafruit_ILI9341> touch(tft, TFT_ETOUCH_CS, TFT_ETOUCH_PIRQ);
+
+# elif defined (_ILI9341_t3H_)
+ILI9341_t3 tft(TFT_CS, TFT_DC, TFT_RST, TFT_MOSI, TFT_SCLK, TFT_MISO);
+TFT_eTouch<ILI9341_t3> touch(tft, TFT_ETOUCH_CS, TFT_ETOUCH_PIRQ);
+
+# elif defined (_TFT_eSPIH_)
 TFT_eSPI tft;
-TFT_eTouch<TFT_eSPI> touch(tft, TFT_ETOUCH_CS, 0xff, TFT_eSPI::getSPIinstance());
+#   ifdef SECOND_SPI_PORT
+TFT_eTouch<TFT_eSPI> touch(tft, TFT_ETOUCH_CS, TFT_ETOUCH_PIRQ, hSPI);
+#   else
+#     ifdef ESP32_PARALLEL
+TFT_eTouch<TFT_eSPI> touch(tft, TFT_ETOUCH_CS, TFT_ETOUCH_PIRQ, SPI);
+#     else
+TFT_eTouch<TFT_eSPI> touch(tft, TFT_ETOUCH_CS, TFT_ETOUCH_PIRQ, TFT_eSPI::getSPIinstance());
+#     endif
+#   endif
+# else
+#   error definition missing in TFT_eTouchUser.h
+# endif
 #else
-TFT_eTouchBase touch(TFT_ETOUCH_CS);
+
+# ifdef SECOND_SPI_PORT
+TFT_eTouchBase touch(TFT_ETOUCH_CS, TFT_ETOUCH_PIRQ, hSPI);
+# else
+TFT_eTouchBase touch(TFT_ETOUCH_CS, TFT_ETOUCH_PIRQ, SPI);
+# endif
+
 #endif
 
 void setup() {
   Serial.begin(115200);
+  delay(2000);
 
+#ifdef SECOND_SPI_PORT
+//  hSPI.begin(); // ESP32 default SCK: 14, MISO: 12, MOSI: 13, SS :15.
+  hSPI.begin(TFT_ETOUCH_SCK, TFT_ETOUCH_MISO, TFT_ETOUCH_MOSI, TFT_ETOUCH_CS);
+#endif
+#ifdef ESP32_PARALLEL
+  SPI.begin();
+#endif
 #ifdef WITH_DISPLAY
   tft.begin();
   touch.init();
 #else
-  // raw test support only default SPI bus (MISO, MOSI & SCLK from pins_arduino.h)
+#ifdef TEENSYDUINO
+  SPI.setMOSI(TFT_MOSI);
+  SPI.setMISO(TFT_MISO);
+  SPI.setSCK(TFT_SCLK);
+#else
+  // raw test on ESP32 support only default SPI bus (MISO, MOSI & SCLK from pins_arduino.h)
+#endif
   touch.init(true);
 #endif
   while (!Serial) ; // wait for Arduino Serial Monitor
@@ -44,8 +95,25 @@ void setup() {
 //  touch.setMeasure(1, true, true, false, 1); // Differential mode faster (take second z bud first x, y. may work)
 //  touch.setAcurateDistance(25); // in this mode acurate distance must be higher for getUserCalibration (default 10)
 
-//  touch.setMeasure(10, false, false, true, 14); // slowest (drop 10 and additional 16 measures. averaging 14 with min max value)
+//  touch.setMeasure(10, false, false, true, 14); // slowest (drop 10 and additional 16 measures. averaging 14 with min max value removed)
 //  touch.setAveraging(true, true);
+
+  // when noisy
+  //touch.setMeasure(1, false, true, true, 3); // z first, drop 1 and additional 5 measures. averaging 3 with min max value removed
+  //touch.setAveraging(true, true);
+  //touch.setAcurateDistance(100); // or even higher for getUserCalibration (default 10)
+  // or
+  touch.setAcurateDistance(80); // and define TOUCH_FILTER_TYPE in TFT_eTouchUser.h
+
+  // untouched: 35 us touched: 95 us (good choice for starting)
+  touch.setMeasure(0, false, true, false, 2); // z first, take 2'th z,x,y
+/* if you get output like that when calling getUserCalibration, you have a noisy touch signal
+acurate on point[4, 4](233, 371) dx: 287 dy: 27 > 10 nok
+acurate on point[4, 4](283, 365) dx: 192 dy: 17 > 10 nok
+acurate on point[4, 4](349, 399) dx: 192 dy: 16 > 10 nok
+acurate on point[4, 4](334, 400) dx: 204 dy: 11 > 10 nok
+*/
+
 
 //  touch.setMeasure(); // defaults (accurate all axis, start with x)
 //  touch.setMeasure(1, true, true, true); // z with local min, acurate x,y
@@ -58,14 +126,25 @@ void setup() {
   tft.setRotation(TFT_ROTATION);
   delay(1);
   tft.fillScreen(TFT_BLACK);
+#ifdef BASIC_FONT_SUPPORT
+  const char* str;
+  str = "Touch raw test!";
+  int16_t len = strlen(str) * 6;
+  tft.setCursor((tft.width() - len)/2, tft.height()/2);
+  tft.print(str);
+#else
   tft.drawCentreString("Touch raw test!", tft.width()/2, tft.height()/2, 2);
+#endif
 #endif
 }
 
 void loop(void) {
+  static uint32_t last_update = 0;
+  if (last_update + touch.getMeasureWait() > millis()) return;
+  last_update = millis();
   uint16_t x = 0, y = 0, z1 = 0, z2 = 0, rz = 0; // To store the touch coordinates
   if (!touch.getRaw(x, y, z1, z2, rz)) return;
-  
+
 #ifdef MINMAX
   static uint16_t count = 0;
   static uint16_t x_min = 0xffff, y_min = 0xffff, z1_min = 0xffff, z2_min = 0xffff, rz_min = 0xffff;
@@ -111,5 +190,5 @@ void loop(void) {
   Serial.print(",");
   Serial.println(rz);
 #endif
-  delay(touch.getMeasureWait() + 1); // wait a little bit longer, for getting new measure values
+//  delay(touch.getMeasureWait() + 1); // wait a little bit longer, for getting new measure values
 }

@@ -9,7 +9,7 @@
 
 #include "TMenu.h"
 
-TMenu::TMenu(TFT_eTouch<TFT_eSPI>& touch, uint8_t offset)
+TMenu::TMenu(TFT_eTouch<TFT_Driver>& touch, uint8_t offset)
 : touch_(touch)
 , offset_(offset)
 #ifndef TEST_RAW_INTERFACE
@@ -22,7 +22,7 @@ TMenu::TMenu(TFT_eTouch<TFT_eSPI>& touch, uint8_t offset)
 {
 }
 
-TFT_eSPI& TMenu::tft()
+TFT_Driver& TMenu::tft()
 {
   return touch_.tft();
 }
@@ -31,6 +31,7 @@ EventType TMenu::pen_up()
 {
   EventType ret = none;
   touched_ = false;
+  touch_.reset();
   for (uint8_t i = 0; i < 4 ; i++) {
     ret = mc_[i].signal();
     mc_[i].pen_up();
@@ -39,7 +40,7 @@ EventType TMenu::pen_up()
 #ifdef TEST_RAW_INTERFACE
   tp_.rz++;
 #else
-  rz_++; // change a little bit, for hiding cursor in next refresh call
+  rz_++; // change a littlte bit, for hideing cursor in next refresh call
 #endif
   return ret;
 }
@@ -86,30 +87,30 @@ void TMenu::init()
   char* str;
   str = "Touch screen!";
   int16_t len = strlen(str) * 6;
-  tft().setCursor((tft().width() - len)/2, tft().height()/2 - 30);
+  tft().setCursor((tft().width() - len)/2, tft().height()/2 - 20);
   tft().print(str);
 
   str = "C: calibrate";
   len = strlen(str) * 6;
-  tft().setCursor((tft().width()-len)/2 , tft().height()/2 - 10);
+  tft().setCursor((tft().width()-len)/2 , tft().height()/2 - 0);
   tft().print(str);
 
   str = "S: store";
   len = strlen(str) * 6;
-  tft().setCursor((tft().width()-len)/2 , tft().height()/2 + 10);
+  tft().setCursor((tft().width()-len)/2 , tft().height()/2 + 20);
   tft().print(str);
 
   str = "(on pen up)";
   len = strlen(str) * 6;
-  tft().setCursor((tft().width()-len)/2 , tft().height()/2 + 30);
+  tft().setCursor((tft().width()-len)/2 , tft().height()/2 + 40);
   tft().print(str);
 #else
   tft().setTextFont(2);
   tft().setTextDatum(TC_DATUM);
-  tft().drawString("Touch screen!", tft().width()/2, tft().height()/2 - 30, 2);
-  tft().drawString("C: calibrate", tft().width()/2, tft().height()/2 - 10, 2);
-  tft().drawString("S: store", tft().width()/2, tft().height()/2 + 10, 2);
-  tft().drawString("(on pen up)", tft().width()/2, tft().height()/2 + 30, 2);
+  tft().drawString("Touch screen!", tft().width()/2, tft().height()/2 - 20, 2);
+  tft().drawString("C: calibrate", tft().width()/2, tft().height()/2 - 0, 2);
+  tft().drawString("S: store", tft().width()/2, tft().height()/2 + 20, 2);
+  tft().drawString("(on pen up)", tft().width()/2, tft().height()/2 + 40, 2);
   tft().setTextDatum(TL_DATUM);
 #endif
 

@@ -26,10 +26,10 @@ TFT_eTouch<TFT_eSPI> touch(tft, TFT_ETOUCH_CS, 0xff, TFT_eSPI::getSPIinstance())
 #endif
 
 #define CELL_SIZE 2     // cell in pixel can be 1
-#define ROTATION 3
+#define ROTATION 1
 
 #ifdef TOUCH_CS
-#define CALIBRATION_FILE "/TouchCalibData3"
+#define CALIBRATION_FILE "/TouchCalibData4"
 #else
 #define CALIBRATION_FILE "/TFT_eTouch.cal"
 #endif
@@ -702,7 +702,7 @@ Life* life = 0;
 void setup()
 {
   Serial.begin(115200);
-  
+  delay(2000);
   //Set up the display
   tft.init();
   tft.setRotation(ROTATION);
@@ -734,7 +734,7 @@ void setup()
 //  touch.setMeasure(1, true, true, false, 2); // z first, take 2'th z,x,y
 
   // untouched: 35 us touched: 95 us
-//  touch.setMeasure(0, false, true, false, 2); // z first, take 2'th z,x,y
+  touch.setMeasure(0, false, true, false, 2); // z first, take 2'th z,x,y
 
   // untouched: 35 us touched: 1302 us
 //  touch.setMeasure(10, false, true, true, 14); // slowest (drop 10(..255) and additional 16 measures. averaging 14 with min max value)

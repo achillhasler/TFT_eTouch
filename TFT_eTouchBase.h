@@ -20,10 +20,13 @@
 #error "Arduino 1.6.0 or later (SPI library) is required"
 #endif
 
-#define TFT_ETOUCH_VERSION "0.5.0"
+#define TFT_ETOUCH_VERSION "0.6.0"
 
 #include <TFT_eTouchUser.h>
 
+#ifdef TOUCH_USE_GESTURE
+class TFT_eTouchGesture;
+#endif
 
 /** 
   * @brief touch support base
@@ -36,7 +39,7 @@ public:
   * 
   * When x0 < x1 the touch x axis is in same direction as the tft axis.
   *
-  * when x1 < y0 the touch x axis is in oposite direction as the tft axis.
+  * when y1 < y0 the touch y axis is in oposite direction as the tft axis.
   *
   * The calibration values { 250, 3800, 260, 3850, 2 } and { 3800, 250, 3850, 260, 0 } are identical.
   * @brief touch calibation
@@ -77,6 +80,7 @@ public:
     int16_t y; ///< TFT y position
     uint16_t rz; ///< resitance of Touch in ohm
 
+    TouchPoint() : x(0), y(0), rz(0xffff) {}
     /// set display position and pressure
     inline void set(int16_t _x, int16_t _y, uint16_t _rz)
     { x = _x; y = _y; rz = _rz; }
@@ -87,18 +91,18 @@ public:
   *
   * Display and touch must use the same spi bus.
   * @brief constructor
-  * @param cs_pin touch chip select line prcessor pin
-  * @param penirq_pin touch penirq line prcessor pin. 0xff disable touch interrupt
+  * @param cs_pin touch chip select line processor pin
+  * @param penirq_pin touch penirq line processor pin. 0xff disable touch interrupt
   * @param spi used bus
   */
               TFT_eTouchBase(uint8_t cs_pin, uint8_t penirq_pin = 0xff, SPIClass& spi = SPI);
 
 /** 
   * Initialize the processor cs pin.
-  * @param spi_init init spi bus to with default MOSI MISO and SCK
   * @brief  init cs pin
+  * @param spi_init init spi bus to with default MOSI MISO and SCK
   */
-	void init(bool spi_init);
+	void        init(bool spi_init);
 
 /** 
   * Get raw position of touch. These values are in orientation of the touchscreen.
@@ -170,7 +174,7 @@ while (touch.getRaw(x, y, z1, z2, rz)) {
   * @param descr filename in flash or adr in eprom
   * @return true when data was readed, otherwise data is invalid
   */
-  bool readCalibration(const char* descr);
+  bool        readCalibration(const char* descr);
   
 /** 
   * Write the actual calibration for this touchscreen to SPIFLASH or EPROM.
@@ -178,7 +182,7 @@ while (touch.getRaw(x, y, z1, z2, rz)) {
   * @param descr filename in flash or adr in eprom
   * @return true when data was written, otherwise calibration is not stored
   */
-  bool writeCalibration(const char* descr);
+  bool        writeCalibration(const char* descr);
   
 /** 
   * Set the measure strategie.
@@ -251,6 +255,7 @@ while (touch.getRaw(x, y, z1, z2, rz)) {
   * @param ohm RX-plate value
   */
   inline void setRXPlate(uint16_t ohm);
+
  /** 
   * @brief get RX-plate
   * @return RX-plate in ohm
@@ -272,6 +277,12 @@ while (touch.getRaw(x, y, z1, z2, rz)) {
   * @return RZ threshold value in ohm
   */
   inline uint16_t getRZThreshold() const;
+
+ /** 
+  * If you use TOUCH_FILTER_TYPE, you have to call this function on pen-up. Otherwise when TOUCH_FILTER_TYPE is not defined, this function does nothing.
+  * @brief reset touch buffer
+  */
+  inline void reset();
 
 #ifdef TOUCH_USE_USER_CALIBRATION
  /** 
@@ -303,8 +314,16 @@ protected:
     { scr_x = x; scr_y = y; }
 
     /// print to Serial
-    void print();
+    void      print();
   };
+  
+ /** 
+  * @brief measure CalibrationPoint
+  * @param  point target, to measure.   
+  * @return true when accurate
+  */
+  bool acurateCalibrationTarget(CalibrationPoint& point);
+  
 #else
 protected:
 #endif // TOUCH_USE_USER_CALIBRATION
@@ -331,6 +350,10 @@ protected:
   Calibation  calibation_; ///< used callibration for transforming touch measure into display pixels
   Measure     raw_; ///< last touch measure
 
+#ifdef TOUCH_USE_GESTURE
+  TFT_eTouchGesture* recognize_;
+#endif
+
 #ifdef TOUCH_USE_PENIRQ_CODE
   volatile bool update_allowed_; ///< goes true when penirq happend
 #endif // end TOUCH_USE_PENIRQ_CODE
@@ -356,17 +379,34 @@ private:
   uint16_t    raw_valid_min_; ///< raw measure minimum value for x, y, z1 and z2 (otherwise it is not touched)
   uint16_t    raw_valid_max_; ///< raw measure maximum value
 
-  uint32_t    last_measure_time_ms_; ///< last measure time in microseconds
+  uint32_t    last_measure_time_us_; ///< last measure time in microseconds
   uint16_t    measure_wait_ms_; ///< waiting time in miliseconds between measures
 
   uint16_t    rx_plate_; ///< Resitor value in ohm of x plate (300)
-  uint16_t    rz_threshold_; ///< when RZ < RZ threshold we have a valid touch (defaultr 3*RX-plate)
+  uint16_t    rz_threshold_; ///< when RZ < RZ threshold we have a valid touch (default 3*RX-plate)
   
 #ifdef TOUCH_USE_USER_CALIBRATION
   uint16_t    acurate_difference_; ///< tolerable noise on X and Y measure for same point
 #endif // TOUCH_USE_USER_CALIBRATION
+
+#ifdef TOUCH_FILTER_TYPE
+# ifdef TOUCH_X_FILTER 
+  TOUCH_X_FILTER *x_filter_;
+# endif
+# ifdef TOUCH_Y_FILTER 
+  TOUCH_Y_FILTER *y_filter_;
+# endif
+# ifdef TOUCH_Z_FILTER 
+  TOUCH_Z_FILTER *z1_filter_;
+  TOUCH_Z_FILTER *z2_filter_;
+# endif
+#endif
 };
 
 #include <TFT_eTouchBase.inl>
+
+#ifdef TOUCH_USE_GESTURE
+#include <TFT_eTouchGesture.h>
+#endif
 
 #endif // TFT_E_TOUCH_BASE_H

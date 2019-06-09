@@ -82,6 +82,23 @@ uint16_t TFT_eTouchBase::getRZThreshold() const
   return rz_threshold_;
 }
 
+void TFT_eTouchBase::reset()
+{
+#ifdef TOUCH_FILTER_TYPE
+# ifdef TOUCH_X_FILTER 
+  x_filter_->reset();
+# endif
+# ifdef TOUCH_Y_FILTER 
+  y_filter_->reset();
+# endif
+# ifdef TOUCH_Z_FILTER
+  z1_filter_->reset();
+  z2_filter_->reset();
+# endif
+#endif
+}
+
+
 bool TFT_eTouchBase::valid()
 {
   return raw_.rz < rz_threshold_;

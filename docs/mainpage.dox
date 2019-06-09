@@ -4,19 +4,19 @@
 @file mainpage.dox
 */
 
-// we have to list all sample programs to schow these in doxygen
+// we have to list all sample programs to show these in doxygen
 /**
 @example raw.ino Touch raw data example
 @example edit_calibation.ino Calibration example for TFT_eSPI driver
-@example Conways_Life.ino Application example for TFT_eSPI driver (compare TFT_eTouch with integrated Touch in TFT_eSPI)
 @example calibrate.ino Calibration example for TFT_eSPI driver (obsolete use edit_calibation.ino)
+@example Conways_Life.ino Application example for TFT_eSPI driver (compare TFT_eTouch with integrated Touch in TFT_eSPI)
 */
 
 /**
 @mainpage TFT_eTouch
 @section intro Intro
 Touchscreen
-- interface: spi & i2c
+- interface: spi & i2c & analog
 - type: resistive & capacitive
 
 This library supports resistive touchscreen chips with spi interface.
@@ -72,6 +72,8 @@ When you averaging you can also ignore min and max measure.
 
 You can adjust the algorithm with TFT_eTouchBase::setMeasure() and TFT_eTouchBase::setAveraging().
 
+If this is still noisy you can have a try with FIR filter. When using FIR there is a large delay.
+
 @subsection calibrate Calibrate
 There is a document from TI slyt277.pdf whitch describes calibration. In my callibration i use only offset and scaling correction no rotation correction.
 You can get a new calibation (TFT_eTouchBase::Calibation) with TFT_eTouch<T>::getCalibration(). A existing calibration can be set with 
@@ -79,12 +81,15 @@ TFT_eTouchBase::setCalibration().
 
 @section todo To Do
 @subsection read_write_cal calibation persistent
-We have to write a function to read/write the calibation from EPROM. (Atmel & Teensy missing) ESP done.
+We have to write a function to read/write the calibation from EPROM. (Atmel & Teensy missing) ESP32 & ESP8266 done.
 bool TFT_eTouchBase::readCalibration(), bool TFT_eTouchBase::writeCalibration().
+
+@subsection analog analog Touch with X+, X-, Y+, Y-
+Support analog Touch.
 
 @subsection gesture gesture recognition
 Next will be gesture recognition. stay, wipe left, wipe right, wipe up and wipe down. (with one ore two fingers)
-If its possible zoom in / out.
+If its possible zoom in / out. (only prepered)
 
 @section reference Reference
 @subsection pdf External documentation 
@@ -94,6 +99,7 @@ If its possible zoom in / out.
 @subsection arduino Existing touch classes for Arduino
 - https://github.com/adafruit/Adafruit_STMPE610
 - https://github.com/PaulStoffregen/XPT2046_Touchscreen
+- https://github.com/adafruit/Touch-Screen-Library (analog Touch)
 
 using:
 - https://gist.github.com/CelliesProjects/99a56121e7c8a7cb00d5b46270e74b75
@@ -106,8 +112,8 @@ using:
 
 @section history History
 - v0.4.0 First draft working with TFT_eSPI < 1.4.0
-- v0.5.0 tested with Tennsy 3.1, ESP32 added load save Configuration, added struct interface for raw & tft values, increasing speed when not touched. TFT_eSPI > 1.4.0 need patch!
-@subsection patch TFT_eSPI > 1.4.0
+- v0.5.0 tested with Tennsy 3.1, ESP32 added load save Configuration, added struct interface for raw & tft values, increasing speed when not touched.
+@subsection patch 1.4.0 < TFT_eSPI < 1.4.8 (latest TFT_eSPI lib has this patch)
 - add static getSPIinstance() function, for getting spi bus used by touchscreen.
 - when default config, (VSPI Port) do not create a new var, use the SPI var exported by SPI.h
 Header file TFT_eSPI.h
@@ -139,6 +145,9 @@ Sourcefile TFT_eSPI.cpp
 
 @endcode
 
+- v0.6.0 tested with Tennsy 3.1, ESP32, ESP8266, Arduino NANO.
+- ESP8266 support
+- added FIR filter
 
 */
 EOF 
