@@ -193,7 +193,7 @@ void TFT_eTouchBase::update(bool only_z1)
 #endif // end TOUCH_USE_PENIRQ_CODE
 
 	uint32_t now = micros();
-	if (now < last_measure_time_us_ + measure_wait_ms_ * 1000) return;
+	if ( now - last_measure_time_us_ <  measure_wait_ms_*1000 ) return;
   last_measure_time_us_ = now;
 
   fetch_raw(only_z1);
